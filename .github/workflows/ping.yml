@@ -1,0 +1,24 @@
+name: Keep Server Awake
+
+on:
+  schedule:
+    # Runs every 14 minutes to prevent Render free tier from sleeping
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  ping:
+    name: Ping Digital Potential Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping server
+        run: |
+          echo "Pinging https://digital-potential.onrender.com ..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://digital-potential.onrender.com/)
+          echo "Response status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Server is awake!"
+          else
+            echo "⚠️ Server returned status $STATUS"
+          fi
