@@ -2,9 +2,8 @@ name: Keep Server Awake
 
 on:
   schedule:
-    # Runs every 6 minutes to prevent Render free tier from sleeping
-    - cron: '*/6 * * * *'
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   ping:
@@ -14,11 +13,23 @@ jobs:
     steps:
       - name: Ping server
         run: |
-          echo "Pinging https://digital-potential.onrender.com ..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://digital-potential.onrender.com/)
+          URL="https://digital-potential.onrender.com/"
+          echo "Pinging $URL ..."
+
+          STATUS=$(curl -sS -L \
+            --connect-timeout 10 \
+            --max-time 120 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            -o /dev/null -w "%{http_code}" \
+            "$URL" || true)
+
           echo "Response status: $STATUS"
-          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+
+          if [[ "$STATUS" =~ ^[0-9]{3}$ ]] && [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
             echo "✅ Server is awake!"
           else
             echo "⚠️ Server returned status $STATUS"
+            exit 1
           fi
