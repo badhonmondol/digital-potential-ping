@@ -1,0 +1,43 @@
+name: Keep Buy & Sell Server Alive
+
+on:
+  schedule:
+    # প্রতি 7 মিনিটে run হবে (0, 7, 14, 21, 28, 35, 42, 49, 56 minutes)
+    - cron: '0,7,14,21,28,35,42,49,56 * * * *'
+  
+  # Manual trigger option
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Wake up server
+        continue-on-error: true
+        run: |
+          # ⚠️ আপনার Render server URL এখানে দিন
+          SERVER="https://your-app-name.onrender.com"
+          
+          echo "⏰ Ping started at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Health endpoint ping (3 attempts with retry)
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SERVER/api/health" || echo "000")
+            echo "  Health check attempt $i → Status: $STATUS"
+            
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Server is alive and healthy!"
+              break
+            fi
+            
+            [ $i -lt 3 ] && sleep 10
+          done
+          
+          # Keep-alive endpoint check
+          STATUS2=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$SERVER/api/keep-alive" || echo "000")
+          echo "  Keep-alive endpoint → Status: $STATUS2"
+          
+          echo "✅ Ping completed at $(date -u '+%H:%M:%S UTC')"
