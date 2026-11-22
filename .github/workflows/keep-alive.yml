@@ -18,8 +18,8 @@ jobs:
       - name: Wake up server
         continue-on-error: true
         run: |
-          # ⚠️ আপনার Render server URL এখানে দিন
-          SERVER="https://your-app-name.onrender.com"
+          # ⚠️ আপনার Render server URL
+          SERVER="https://digital-potential.onrender.com"
           
           echo "⏰ Ping started at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           

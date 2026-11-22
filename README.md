@@ -12,7 +12,7 @@
 
 ## 📊 Status
 
-**Server:** `https://your-app-name.onrender.com`
+**Server:** `https://digital-potential.onrender.com`
 
 **Endpoints:**
 - `/api/health` - Server health check with database connection
@@ -43,9 +43,9 @@ GitHub Logs (Success/Failure)
 
 Edit `.github/workflows/keep-alive.yml` and replace:
 ```yaml
-SERVER="https://your-app-name.onrender.com"
+SERVER="https://digital-potential.onrender.com"
 ```
-with your actual Render server URL.
+with your actual Render server URL (already configured!).
 
 ### Step 2: Push to GitHub
 
