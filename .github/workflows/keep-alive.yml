@@ -2,13 +2,21 @@ name: Keep Render Server Alive
 
 on:
   schedule:
+    # Main slots — every 7 minutes
     - cron: '0,7,14,21,28,35,42,49,56 * * * *'
+    # Offset slots (3 min gap) — if main cron misses, these fire
+    - cron: '3,10,17,24,31,38,45,52,59 * * * *'
   workflow_dispatch:
   push:
     branches: [main]
 
 permissions:
   contents: write
+  actions: write
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
 
 jobs:
   ping:
@@ -44,11 +52,11 @@ jobs:
 
           echo "✅ Done at $(date -u '+%H:%M:%S UTC')"
 
-      - name: Bump timestamp to keep scheduler active
+      - name: Keep scheduler active (bump timestamp every run)
         if: github.event_name == 'schedule'
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           date -u > .last-ping
           git add .last-ping
-          git diff --cached --quiet || git commit -m "chore: ping $(date -u '+%Y-%m-%d %H:%M') [skip ci]" && git push
+          git diff --cached --quiet || (git commit -m "chore: ping $(date -u '+%Y-%m-%d %H:%M') [skip ci]" && git push)
