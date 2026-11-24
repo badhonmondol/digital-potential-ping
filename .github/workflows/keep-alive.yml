@@ -1,46 +1,39 @@
 name: Keep Buy & Sell Server Alive
 
 on:
-  schedule:
-    # Every 7 minutes — keeps Render free tier from sleeping (sleeps after 15 min idle)
-    - cron: '0,7,14,21,28,35,42,49,56 * * * *'
-
-  # Manual trigger
+  # Hourly cron is reliable on GitHub Actions.
+  # High-frequency crons (every 5-7 min) are heavily delayed/dropped by GitHub,
+  # which is why the old every-7-min schedule stopped firing.
+  # Instead: start every hour, then ping in a loop for 55 minutes (every 5 min).
+  - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
   ping:
-    name: Ping Server
+    name: Ping Server (55 min loop)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 59
 
     steps:
-      - name: Wake up server
+      - name: Ping server every 5 minutes for 55 minutes
         run: |
           SERVER="https://digital-potential.onrender.com"
 
-          echo "⏰ Ping started at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "⏰ Ping loop started at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          # --- /api/health (3 attempts, 30s timeout each) ---
-          SUCCESS=false
-          for i in 1 2 3; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$SERVER/api/health" || echo "000")
-            echo "  /api/health attempt $i → Status: $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              SUCCESS=true
-              echo "✅ Server is alive!"
-              break
+          # 11 pings x 5 min = 55 min. The next hourly run takes over after that.
+          for i in $(seq 1 11); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$SERVER/api/health" || echo "000")
+            echo "  [$(date -u '+%H:%M:%S')] ping $i/11 → /api/health: $STATUS"
+
+            if [ "$STATUS" != "200" ]; then
+              # One retry (Render free tier can take 30-60s to wake up)
+              sleep 20
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$SERVER/api/health" || echo "000")
+              echo "  [$(date -u '+%H:%M:%S')] retry $i → /api/health: $STATUS"
             fi
-            [ $i -lt 3 ] && sleep 10
+
+            [ "$i" -lt 11 ] && sleep 265
           done
 
-          if [ "$SUCCESS" = "false" ]; then
-            echo "❌ Server did not respond after 3 attempts"
-            exit 1
-          fi
-
-          # --- /api/keep-alive (single check) ---
-          STATUS2=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$SERVER/api/keep-alive" || echo "000")
-          echo "  /api/keep-alive → Status: $STATUS2"
-
-          echo "✅ Ping completed at $(date -u '+%H:%M:%S UTC')"
+          echo "✅ Ping loop completed at $(date -u '+%H:%M:%S UTC')"
