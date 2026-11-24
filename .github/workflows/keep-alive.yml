@@ -5,7 +5,8 @@ on:
   # High-frequency crons (every 5-7 min) are heavily delayed/dropped by GitHub,
   # which is why the old every-7-min schedule stopped firing.
   # Instead: start every hour, then ping in a loop for 55 minutes (every 5 min).
-  - cron: '0 * * * *'
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
