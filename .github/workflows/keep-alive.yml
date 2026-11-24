@@ -7,6 +7,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   ping:
     name: Ping Server
@@ -41,19 +44,11 @@ jobs:
 
           echo "✅ Done at $(date -u '+%H:%M:%S UTC')"
 
-      - name: Keep scheduler alive (daily commit)
+      - name: Bump timestamp to keep scheduler active
         if: github.event_name == 'schedule'
         run: |
-          # Commit once per day at 00:00 UTC slot to prevent GitHub from
-          # disabling the scheduled workflow due to repo inactivity.
-          HOUR=$(date -u +%H)
-          MIN=$(date -u +%M)
-          if [ "$HOUR" = "00" ] && [ "$MIN" -lt "10" ]; then
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git config user.name "github-actions[bot]"
-            echo "$(date -u)" > .last-ping
-            git add .last-ping
-            git commit -m "chore: keep scheduler alive [skip ci]"
-            git push
-            echo "✅ Daily commit pushed"
-          fi
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          date -u > .last-ping
+          git add .last-ping
+          git diff --cached --quiet || git commit -m "chore: ping $(date -u '+%Y-%m-%d %H:%M') [skip ci]" && git push
