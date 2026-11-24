@@ -20,10 +20,21 @@
 
 ## 🔄 Schedule
 
-Runs every 7 minutes at:
+**Strategy:** Hourly cron (reliable) + 55-minute in-job ping loop
+
 ```
-0, 7, 14, 21, 28, 35, 42, 49, 56 minutes of every hour
+GitHub Actions hourly cron (top of every hour)
+    ↓
+Single job runs for 55 minutes
+    ↓
+Pings /api/health every 5 minutes (11 pings)
+    ↓
+Next hour's run takes over seamlessly
 ```
+
+> ⚠️ Note: High-frequency crons (every 5-7 min) are **unreliable** on GitHub Actions —
+> the scheduler delays or drops runs during peak load. That's why we use an hourly
+> cron with an in-job loop instead.
 
 ## 🎯 How It Works
 
@@ -82,17 +93,14 @@ git push
 
 ### Change Ping Frequency
 
-Edit `cron` schedule in `keep-alive.yml`:
+Edit `cron` schedule and the loop count in `keep-alive.yml`:
 
 ```yaml
-# Every 5 minutes
-- cron: '*/5 * * * *'
+# Hourly start, ping every 5 min (default)
+- cron: '0 * * * *'      # in-job loop: 11 pings, sleep 265s
 
-# Every 10 minutes
-- cron: '*/10 * * * *'
-
-# Every 3 minutes (aggressive)
-- cron: '*/3 * * * *'
+# Ping every 3 minutes (more aggressive)
+# change: sleep 175 in the loop, and increase iterations to 18
 ```
 
 ### Ping Multiple Servers
