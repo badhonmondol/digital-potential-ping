@@ -29,7 +29,9 @@ jobs:
             [ $i -lt 3 ] && sleep 10
           done
 
-          S=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$SERVER/api/keep-alive" || echo "000")
-          echo "  /api/keep-alive → $S"
+          for ep in /api/keep-alive /api/public-home; do
+            S=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$SERVER$ep" || echo "000")
+            echo "  $ep → $S"
+          done
 
           echo "✅ Done at $(date -u '+%H:%M:%S UTC')"
