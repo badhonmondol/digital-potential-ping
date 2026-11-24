@@ -1,43 +1,35 @@
-name: Keep Buy & Sell Server Alive (Backup)
-
-# BACKUP layer — primary keep-alive is cron-job.org (external, reliable).
-# This workflow fires on 6 staggered slots per hour. Even if GitHub drops
-# some scheduled runs, at least one fires and its 9-min loop keeps the
-# server awake. Any one firing slot per ~15 min is enough (Render sleeps at 15).
+name: Keep Render Server Alive
 
 on:
   schedule:
-    - cron: '2,12,22,32,42,52 * * * *'
+    - cron: '0,7,14,21,28,35,42,49,56 * * * *'
   workflow_dispatch:
-
-concurrency:
-  group: keep-alive
-  cancel-in-progress: true
 
 jobs:
   ping:
-    name: Ping Server (9 min loop)
+    name: Ping Server
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
 
     steps:
-      - name: Ping server every 4.5 minutes
+      - name: Wake up Render server
+        continue-on-error: true
         run: |
           SERVER="https://digital-potential.onrender.com"
 
-          echo "⏰ Ping loop started at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "⏰ $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          for i in 1 2; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$SERVER/api/health" || echo "000")
-            echo "  [$(date -u '+%H:%M:%S')] ping $i/2 → /api/health: $STATUS"
-
-            if [ "$STATUS" != "200" ]; then
-              sleep 20
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$SERVER/api/health" || echo "000")
-              echo "  [$(date -u '+%H:%M:%S')] retry $i → /api/health: $STATUS"
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SERVER/api/health" || echo "000")
+            echo "  attempt $i → $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Server alive!"
+              break
             fi
-
-            [ "$i" -lt 2 ] && sleep 265
+            [ $i -lt 3 ] && sleep 10
           done
 
-          echo "✅ Ping loop completed at $(date -u '+%H:%M:%S UTC')"
+          S=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$SERVER/api/keep-alive" || echo "000")
+          echo "  /api/keep-alive → $S"
+
+          echo "✅ Done at $(date -u '+%H:%M:%S UTC')"
