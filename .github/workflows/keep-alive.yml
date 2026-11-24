@@ -1,40 +1,43 @@
-name: Keep Buy & Sell Server Alive
+name: Keep Buy & Sell Server Alive (Backup)
+
+# BACKUP layer — primary keep-alive is cron-job.org (external, reliable).
+# This workflow fires on 6 staggered slots per hour. Even if GitHub drops
+# some scheduled runs, at least one fires and its 9-min loop keeps the
+# server awake. Any one firing slot per ~15 min is enough (Render sleeps at 15).
 
 on:
-  # Hourly cron is reliable on GitHub Actions.
-  # High-frequency crons (every 5-7 min) are heavily delayed/dropped by GitHub,
-  # which is why the old every-7-min schedule stopped firing.
-  # Instead: start every hour, then ping in a loop for 55 minutes (every 5 min).
   schedule:
-    - cron: '0 * * * *'
+    - cron: '2,12,22,32,42,52 * * * *'
   workflow_dispatch:
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
 
 jobs:
   ping:
-    name: Ping Server (55 min loop)
+    name: Ping Server (9 min loop)
     runs-on: ubuntu-latest
-    timeout-minutes: 59
+    timeout-minutes: 10
 
     steps:
-      - name: Ping server every 5 minutes for 55 minutes
+      - name: Ping server every 4.5 minutes
         run: |
           SERVER="https://digital-potential.onrender.com"
 
           echo "⏰ Ping loop started at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          # 11 pings x 5 min = 55 min. The next hourly run takes over after that.
-          for i in $(seq 1 11); do
+          for i in 1 2; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$SERVER/api/health" || echo "000")
-            echo "  [$(date -u '+%H:%M:%S')] ping $i/11 → /api/health: $STATUS"
+            echo "  [$(date -u '+%H:%M:%S')] ping $i/2 → /api/health: $STATUS"
 
             if [ "$STATUS" != "200" ]; then
-              # One retry (Render free tier can take 30-60s to wake up)
               sleep 20
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$SERVER/api/health" || echo "000")
               echo "  [$(date -u '+%H:%M:%S')] retry $i → /api/health: $STATUS"
             fi
 
-            [ "$i" -lt 11 ] && sleep 265
+            [ "$i" -lt 2 ] && sleep 265
           done
 
           echo "✅ Ping loop completed at $(date -u '+%H:%M:%S UTC')"
