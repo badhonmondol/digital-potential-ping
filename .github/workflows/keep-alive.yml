@@ -2,10 +2,8 @@ name: Keep Render Server Alive
 
 on:
   schedule:
-    # Main slots — every 7 minutes
-    - cron: '0,7,14,21,28,35,42,49,56 * * * *'
-    # Offset slots (3 min gap) — if main cron misses, these fire
-    - cron: '3,10,17,24,31,38,45,52,59 * * * *'
+    # Every 5 minutes — Render free tier sleeps after 15 min of inactivity
+    - cron: '0,5,10,15,20,25,30,35,40,45,50,55 * * * *'
   workflow_dispatch:
   push:
     branches: [main]
@@ -14,15 +12,16 @@ permissions:
   contents: write
   actions: write
 
+# Do NOT cancel in-progress runs — if two fire together, both should ping
 concurrency:
-  group: keep-alive
-  cancel-in-progress: true
+  group: keep-alive-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   ping:
     name: Ping Server
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
 
     steps:
       - name: Checkout
@@ -35,16 +34,18 @@ jobs:
 
           echo "⏰ $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          for i in 1 2 3; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SERVER/api/health" || echo "000")
+          # Primary health check — retry up to 5 times with 15s gaps
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 "$SERVER/api/health" || echo "000")
             echo "  attempt $i → $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "✅ Server alive!"
               break
             fi
-            [ $i -lt 3 ] && sleep 10
+            [ $i -lt 5 ] && sleep 15
           done
 
+          # Hit extra endpoints to reset Render's idle timer
           for ep in /api/keep-alive /api/public-home; do
             S=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$SERVER$ep" || echo "000")
             echo "  $ep → $S"
